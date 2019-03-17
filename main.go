@@ -26,8 +26,7 @@ func main() {
 		Addr:   addr,
 		TxType: 1,
 		Data: map[string]interface{}{
-			"code":    []byte("sendTo(000000000000000000000000000000, 10)"),
-			"trigger": []byte(""),
+			"code": []byte("sendTo(000000000000000000000000000000, 10)"),
 			"proposal_shared_origin_key": map[string][]byte{
 				"public_key":            pub,
 				"encrypted_private_key": hash.Sum(nil),
