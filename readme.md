@@ -2,7 +2,7 @@
 
 Given 5 masters, 4 cross validation nodes and 36 storage nodes.
 
-Size: **8200 bytes**
+Size: **2656 bytes** (only data) **8200 bytes** (entire JSON)
 
 Transaction output:  
 ```json

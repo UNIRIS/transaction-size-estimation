@@ -119,46 +119,102 @@ func main() {
 
 	t.MasterValdiation = mv
 
-	tB, _ = json.Marshal(t)
-	log.Print(string(tB))
 	log.Println("=======================")
-	log.Printf("Size: %d bytes\n", len(tB))
+	log.Printf("Size: %d bytes\n", transactionSize(t))
+}
+
+func transactionSize(t transaction) int {
+
+	var vSize int
+	for _, v := range t.CrossValidations {
+		vSize += validationSize(v)
+	}
+
+	prop := t.Data["proposal_shared_origin_key"].(map[string][]byte)
+
+	return len(t.Addr) +
+		1 + //Type
+		10 + //Timestamp
+		len(t.Data["code"].([]byte)) +
+		len(prop["public_key"]) +
+		len(prop["encrypted_private_key"]) +
+		len(t.PubKey) +
+		len(t.Sig) +
+		len(t.OriginSig) +
+		masterValidationSize(t.MasterValdiation) + vSize
+}
+
+func validationSize(v validation) int {
+	return len(v.NodePubk) +
+		len(v.NodeSig) +
+		1 + //Status
+		10 //Timestamp
+}
+
+func masterValidationSize(v masterValidation) int {
+
+	var wHeaderSize, vHeaderSize, sHeaderSize int
+
+	for _, h := range v.WHeaders {
+		wHeaderSize += headerSize(h)
+	}
+
+	for _, h := range v.VHeaders {
+		vHeaderSize += headerSize(h)
+	}
+
+	for _, h := range v.SHeaders {
+		sHeaderSize += headerSize(h)
+	}
+
+	return len(v.Pow) +
+		len(v.PrevValidNodes) +
+		wHeaderSize + vHeaderSize + sHeaderSize +
+		len(v.TransactionHash) +
+		validationSize(v.Validation)
+}
+
+func headerSize(h nodeHeader) int {
+	return 1 + //isMaster
+		1 + //isUnreachable
+		1 + //IsOk
+		len(h.PubKey) +
+		3 //Patch number
 }
 
 type transaction struct {
-	Addr             []byte                 `json:"address"`
-	PrevAddr         []byte                 `json:"previous_address"`
-	TxType           int                    `json:"type"`
-	Data             map[string]interface{} `json:"data"`
-	Timestamp        time.Time              `json:"timestamp"`
-	PubKey           []byte                 `json:"public_key"`
-	Sig              []byte                 `json:"signature"`
-	OriginSig        []byte                 `json:"origin_signature"`
-	MasterValdiation masterValidation       `json:"master_validation_stamp"`
-	CrossValidations []validation           `json:"cross_validation_stamps"`
+	Addr             []byte
+	TxType           int
+	Data             map[string]interface{}
+	Timestamp        time.Time
+	PubKey           []byte
+	Sig              []byte
+	OriginSig        []byte
+	MasterValdiation masterValidation
+	CrossValidations []validation
 }
 
 type validation struct {
-	Status    int       `json:"status"`
-	Timestamp time.Time `json:"timestamp"`
-	NodePubk  []byte    `json:"node_public_key"`
-	NodeSig   []byte    `json:"node_signature"`
+	Status    int
+	Timestamp time.Time
+	NodePubk  []byte
+	NodeSig   []byte
 }
 
 type masterValidation struct {
-	PrevValidNodes  [][]byte     `json:"previous_validation-nodes"`
-	Pow             []byte       `json:"proof_of_work"`
-	Validation      validation   `json:"validation_stamp"`
-	WHeaders        []nodeHeader `json:"welcome_headers"`
-	VHeaders        []nodeHeader `json:"validation_headers"`
-	SHeaders        []nodeHeader `json:"storage_headers"`
-	TransactionHash []byte       `json:"transaction_hash"`
+	PrevValidNodes  [][]byte
+	Pow             []byte
+	Validation      validation
+	WHeaders        []nodeHeader
+	VHeaders        []nodeHeader
+	SHeaders        []nodeHeader
+	TransactionHash []byte
 }
 
 type nodeHeader struct {
-	PubKey        []byte `json:"public_key"`
-	IsUnreachable bool   `json:"is_unreachable"`
-	IsMaster      bool   `json:"is_master"`
-	PatchNumber   int    `json:"patch_number"`
-	IsOK          bool   `json:"is_ok"`
+	PubKey        []byte
+	IsUnreachable bool
+	IsMaster      bool
+	PatchNumber   int
+	IsOK          bool
 }
