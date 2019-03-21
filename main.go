@@ -121,14 +121,11 @@ func main() {
 
 	t.MasterValdiation = mv
 
-	log.Println("=======================")
-	log.Printf("Full: %d bytes\n", transactionSizeWithMaster(t))
-
-	log.Println("========================")
-	log.Printf("Without headers : %d bytes\n", transactionSizeWithoutHeaders(t))
-
-	log.Println("========================")
-	log.Printf("Without validations : %d bytes\n", transactionSizeOnly(t))
+	log.Printf("Transaction + validations + headers: %d bytes\n", transactionSizeWithMaster(t))
+	log.Printf("Transaction + validations + without headers : %d bytes\n", transactionSizeWithoutHeaders(t))
+	log.Printf("Transaction + validations + compress custom encoding headers: %d bytes\n", transactionSizeWithCustomCompHeaders(t))
+	log.Printf("Transaction + validations + compress JSON encoding headers: %d bytes\n", transactionSizeWithJSONCompHeaders(t))
+	log.Printf("Transaction only: %d bytes\n", transactionSizeOnly(t))
 }
 
 func transactionSizeOnly(t transaction) int {
@@ -162,6 +159,24 @@ func transactionSizeWithoutHeaders(t transaction) int {
 	}
 
 	return transactionSizeOnly(t) + masterValidationWithoutHeaders(t.MasterValdiation) + vSize
+}
+
+func transactionSizeWithCustomCompHeaders(t transaction) int {
+	var vSize int
+	for _, v := range t.CrossValidations {
+		vSize += validationSize(v)
+	}
+
+	return transactionSizeOnly(t) + masterValidationWithCustomCompressedHeaders(t.MasterValdiation) + vSize
+}
+
+func transactionSizeWithJSONCompHeaders(t transaction) int {
+	var vSize int
+	for _, v := range t.CrossValidations {
+		vSize += validationSize(v)
+	}
+
+	return transactionSizeOnly(t) + masterValidationWithJSONCompressedHeaders(t.MasterValdiation) + vSize
 }
 
 func validationSize(v validation) int {
@@ -198,6 +213,30 @@ func masterValidationWithoutHeaders(v masterValidation) int {
 	return len(v.Pow) +
 		len(v.PrevValidNodes) +
 		len(v.TransactionHash) +
+		validationSize(v.Validation)
+}
+
+func masterValidationWithCustomCompressedHeaders(v masterValidation) int {
+	wHeaderSize := customCompressHeaders(v.WHeaders)
+	vHeaderSize := customCompressHeaders(v.VHeaders)
+	sHeaderSize := customCompressHeaders(v.SHeaders)
+
+	return len(v.Pow) +
+		len(v.PrevValidNodes) +
+		len(v.TransactionHash) +
+		wHeaderSize + vHeaderSize + sHeaderSize +
+		validationSize(v.Validation)
+}
+
+func masterValidationWithJSONCompressedHeaders(v masterValidation) int {
+	wHeaderSize := jsonCompressHeaders(v.WHeaders)
+	vHeaderSize := jsonCompressHeaders(v.VHeaders)
+	sHeaderSize := jsonCompressHeaders(v.SHeaders)
+
+	return len(v.Pow) +
+		len(v.PrevValidNodes) +
+		len(v.TransactionHash) +
+		wHeaderSize + vHeaderSize + sHeaderSize +
 		validationSize(v.Validation)
 }
 
@@ -253,4 +292,37 @@ func compress(data []byte) []byte {
 	g.Flush()
 	g.Close()
 	return buf.Bytes()
+}
+
+func customCompressHeaders(hh []nodeHeader) int {
+	b := make([]byte, 0)
+	for _, h := range hh {
+		b = append(b, h.PubKey...)
+		if h.IsUnreachable {
+			b = append(b, 1)
+		} else {
+			b = append(b, 0)
+		}
+		if h.IsOK {
+			b = append(b, 1)
+		} else {
+			b = append(b, 0)
+		}
+		if h.IsMaster {
+			b = append(b, 1)
+		} else {
+			b = append(b, 0)
+		}
+		b = append(b, byte(h.PatchNumber))
+	}
+	return len(compress(b))
+}
+
+func jsonCompressHeaders(hh []nodeHeader) int {
+	b := make([]byte, 0)
+	for _, h := range hh {
+		j, _ := json.Marshal(h)
+		b = append(b, j...)
+	}
+	return len(compress(b))
 }

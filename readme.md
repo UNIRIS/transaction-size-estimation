@@ -8,6 +8,8 @@ Context: Given 5 masters, 4 cross validation nodes and 36 storage nodes.
 | -----|--------------|
 | Transaction + validations + with headers | 2656 |
 | Transaction + validations - headers | 908 |
+| Transaction + validations + compressed headers with custom encoding | 1126 |
+| Transaction + validations + compressed headers with JSON encoding | 1376 |
 | Transaction only | 309 |
 
 ## Transaction only (value size in bytes) = 309
@@ -19,6 +21,11 @@ Context: Given 5 masters, 4 cross validation nodes and 36 storage nodes.
 ## Master validation only (value size in bytes) = 139
 | Tx hash | POW | Status | Timestamp | Public key | Signature |
 |------------------|-----|--------|-----------|------------|-----------|
+| 33 | 32 | 1 | 10 | 32 | 64 |
+
+## Master validation only (value size in bytes) = 139
+| Tx hash | POW | Status | Timestamp | Public key | Signature |
+|---------|-----|--------|-----------|------------|-----------|
 | 33 | 32 | 1 | 10 | 32 | 64 |
 
 
