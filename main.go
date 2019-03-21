@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"compress/gzip"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/json"
@@ -32,8 +34,8 @@ func main() {
 				"encrypted_private_key": hash.Sum(nil),
 			},
 		},
-		Timestamp: time.Now(),
-		PubKey:    pub,
+		Timestamp:  time.Now(),
+		PrevPubKey: pub,
 	}
 
 	hash.Reset()
@@ -120,16 +122,16 @@ func main() {
 	t.MasterValdiation = mv
 
 	log.Println("=======================")
-	log.Printf("Size: %d bytes\n", transactionSize(t))
+	log.Printf("Full: %d bytes\n", transactionSizeWithMaster(t))
+
+	log.Println("========================")
+	log.Printf("Without headers : %d bytes\n", transactionSizeWithoutHeaders(t))
+
+	log.Println("========================")
+	log.Printf("Without validations : %d bytes\n", transactionSizeOnly(t))
 }
 
-func transactionSize(t transaction) int {
-
-	var vSize int
-	for _, v := range t.CrossValidations {
-		vSize += validationSize(v)
-	}
-
+func transactionSizeOnly(t transaction) int {
 	prop := t.Data["proposal_shared_origin_key"].(map[string][]byte)
 
 	return len(t.Addr) +
@@ -138,10 +140,28 @@ func transactionSize(t transaction) int {
 		len(t.Data["code"].([]byte)) +
 		len(prop["public_key"]) +
 		len(prop["encrypted_private_key"]) +
-		len(t.PubKey) +
+		len(t.PrevPubKey) +
 		len(t.Sig) +
-		len(t.OriginSig) +
-		masterValidationSize(t.MasterValdiation) + vSize
+		len(t.OriginSig)
+}
+
+func transactionSizeWithMaster(t transaction) int {
+
+	var vSize int
+	for _, v := range t.CrossValidations {
+		vSize += validationSize(v)
+	}
+
+	return transactionSizeOnly(t) + masterValidationSize(t.MasterValdiation) + vSize
+}
+
+func transactionSizeWithoutHeaders(t transaction) int {
+	var vSize int
+	for _, v := range t.CrossValidations {
+		vSize += validationSize(v)
+	}
+
+	return transactionSizeOnly(t) + masterValidationWithoutHeaders(t.MasterValdiation) + vSize
 }
 
 func validationSize(v validation) int {
@@ -174,6 +194,13 @@ func masterValidationSize(v masterValidation) int {
 		validationSize(v.Validation)
 }
 
+func masterValidationWithoutHeaders(v masterValidation) int {
+	return len(v.Pow) +
+		len(v.PrevValidNodes) +
+		len(v.TransactionHash) +
+		validationSize(v.Validation)
+}
+
 func headerSize(h nodeHeader) int {
 	return 1 + //isMaster
 		1 + //isUnreachable
@@ -187,7 +214,7 @@ type transaction struct {
 	TxType           int
 	Data             map[string]interface{}
 	Timestamp        time.Time
-	PubKey           []byte
+	PrevPubKey       []byte
 	Sig              []byte
 	OriginSig        []byte
 	MasterValdiation masterValidation
@@ -217,4 +244,13 @@ type nodeHeader struct {
 	IsMaster      bool
 	PatchNumber   int
 	IsOK          bool
+}
+
+func compress(data []byte) []byte {
+	var buf bytes.Buffer
+	g := gzip.NewWriter(&buf)
+	g.Write(data)
+	g.Flush()
+	g.Close()
+	return buf.Bytes()
 }
